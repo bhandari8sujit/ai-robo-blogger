@@ -1,0 +1,27 @@
+[project]
+name = "robo-blog-backend"
+version = "0.1.0"
+description = "FastAPI backend for AI voice-to-blogging"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi[standard]>=0.115.0",
+  "uvicorn>=0.30.0",
+  "sqlmodel>=0.0.22",
+  "pydantic>=2.9.0",
+  "python-multipart>=0.0.9",
+  "langchain>=0.3.0",
+  "langchain-openai>=0.2.0",
+  "langgraph>=0.2.0",
+  "openai>=1.0.0",
+  "python-dotenv>=1.0.0",
+  "tavily-python>=0.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.0",
+  "httpx>=0.27.0",
+]
+
+[tool.fastapi]
+entrypoint = "app.main:app"
