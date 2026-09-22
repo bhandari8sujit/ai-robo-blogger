@@ -1,10 +1,9 @@
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import SecretStr
-
 
 # Runs at module import time so configuration is available before FastAPI creates the app.
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
@@ -21,7 +20,9 @@ def _optional_env(name: str) -> str | None:
 def _required_secret(name: str, min_length: int) -> SecretStr:
     value = os.getenv(name, "")
     if len(value) < min_length:
-        raise RuntimeError(f"{name} must be set and contain at least {min_length} characters")
+        raise RuntimeError(
+            f"{name} must be set and contain at least {min_length} characters"
+        )
     return SecretStr(value)
 
 
@@ -30,13 +31,18 @@ def _required_secret(name: str, min_length: int) -> SecretStr:
 class Settings:
     app_name: str = "Robo Blog Backend"
     app_version: str = "0.1.0"
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./robo_blog.db")
+    database_url: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql+psycopg://robo_blog:robo_blog_password@localhost:5432/robo_blog",
+    )
     audio_storage_dir: str = os.getenv("AUDIO_STORAGE_DIR", "./audio_store")
     default_user_id: str = os.getenv("DEFAULT_USER_ID", "demo-user")
     jwt_secret_key: SecretStr = _required_secret("JWT_SECRET_KEY", 32)
     openai_api_key: str | None = _optional_env("OPENAI_API_KEY")
     openai_base_url: str | None = _optional_env("OPENAI_BASE_URL")
-    transcription_model: str = os.getenv("TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe")
+    transcription_model: str = os.getenv(
+        "TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe"
+    )
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
     llm_strong_model: str = os.getenv("LLM_STRONG_MODEL", "gpt-4.1")
     tavily_api_key: str | None = _optional_env("TAVILY_API_KEY")
@@ -51,7 +57,9 @@ class Settings:
     # A tuple is immutable; the ellipsis means "zero or more strings" in a type annotation.
     cors_origins: tuple[str, ...] = tuple(
         origin.strip()
-        for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
+        for origin in os.getenv(
+            "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
         if origin.strip()
     )
 
