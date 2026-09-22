@@ -7,13 +7,16 @@ import { BlogBrainPanel } from "@/components/BlogBrainPanel";
 import { DraftWorkspace } from "@/components/DraftWorkspace";
 import { ResearchPanel } from "@/components/ResearchPanel";
 import { VoiceCapturePanel } from "@/components/VoiceCapturePanel";
-import { generateDraft, getBlogState, getResearch } from "@/lib/api";
-import { getApiBaseUrl } from "@/lib/runtime";
-import { useEventStream } from "@/hooks/useEventStream";
+import { generateDraft, getBlogState, getResearch, runResearch } from "@/lib/api";
 
 const BLOG_ID = "demo-blog";
 
-export function AppShell() {
+interface AppShellProps {
+  email: string;
+  onLogout: () => void;
+}
+
+export function AppShell({ email, onLogout }: AppShellProps) {
   const queryClient = useQueryClient();
   const [draftVersion, setDraftVersion] = useState(0);
 
@@ -39,16 +42,7 @@ export function AppShell() {
   });
 
   const researchMutation = useMutation({
-    mutationFn: async () => {
-      const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/blogs/${BLOG_ID}/research/run`, {
-        method: "POST",
-      });
-      if (!response.ok) {
-        throw new Error("Unable to run research.");
-      }
-      return response.json();
-    },
+    mutationFn: () => runResearch(BLOG_ID),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["research", BLOG_ID] });
       void queryClient.invalidateQueries({ queryKey: ["blog-state", BLOG_ID] });
@@ -68,6 +62,12 @@ export function AppShell() {
   return (
     <main className="app-shell">
       <section className="hero reveal">
+        <div className="session-bar">
+          <span>{email}</span>
+          <button className="button session-button" type="button" onClick={onLogout}>
+            Sign out
+          </button>
+        </div>
         <p className="eyebrow">Voice-first writing studio</p>
         <h1>Talk to your blog while the system builds evidence and structure.</h1>
         <p>

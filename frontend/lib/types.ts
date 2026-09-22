@@ -96,3 +96,15 @@ export interface EventMessage {
   payload: Record<string, unknown>;
   createdAt: string;
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AuthToken {
+  access_token: string;
+  token_type: "bearer";
+}

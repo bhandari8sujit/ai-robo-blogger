@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class ApiBaseModel(BaseModel):
@@ -11,6 +11,23 @@ class ApiBaseModel(BaseModel):
 
 class BlogCreateRequest(ApiBaseModel):
     title: str = "Untitled Blog"
+
+
+class UserCreateRequest(ApiBaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserResponse(ApiBaseModel):
+    id: str
+    email: EmailStr
+    is_active: bool = Field(alias="isActive")
+    created_at: datetime = Field(alias="createdAt")
+
+
+class TokenResponse(ApiBaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
 
 
 class BlogResponse(ApiBaseModel):

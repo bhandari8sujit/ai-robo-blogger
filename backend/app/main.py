@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
 from app.api.blogs import router as blogs_router
+from app.api.auth import router as auth_router
 from app.api.drafts import router as drafts_router
 from app.api.events import router as events_router
 from app.api.fragments import router as fragments_router
@@ -66,6 +67,7 @@ def healthcheck() -> dict[str, str]:
 
 # Router modules own their endpoint declarations; registration attaches them to this application.
 app.include_router(blogs_router)
+app.include_router(auth_router)
 app.include_router(fragments_router)
 app.include_router(generation_router)
 app.include_router(drafts_router)

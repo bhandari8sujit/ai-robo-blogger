@@ -55,6 +55,7 @@ def get_blog(blog_id: Annotated[str, Path(min_length=1)], session: DbSession) ->
 async def upload_fragment(
     blog_id: Annotated[str, Path(min_length=1)],
     session: DbSession,
+    _: CurrentUserId,
     audio: Annotated[UploadFile, File()],
 ) -> FragmentResponse:
     repo = BlogRepository(session)
@@ -155,7 +156,9 @@ def get_research_questions(
 
 
 @router.post("/{blog_id}/research/run")
-async def run_research(blog_id: Annotated[str, Path(min_length=1)], session: DbSession) -> dict[str, int]:
+async def run_research(
+    blog_id: Annotated[str, Path(min_length=1)], session: DbSession, _: CurrentUserId
+) -> dict[str, int]:
     service = OrchestrationService(session)
     completed = await service.run_research(blog_id)
     return {"completed": completed}

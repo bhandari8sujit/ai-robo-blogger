@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path
 
-from app.core.deps import DbSession
+from app.core.deps import CurrentUserId, DbSession
 from app.repositories.blog_repository import BlogRepository
 from app.schemas.api import DraftResponse, DraftRevisionRequest, QaResultResponse, SentenceWhyResponse, SourceResponse
 from app.services.orchestration_service import OrchestrationService
@@ -12,7 +12,9 @@ router = APIRouter(prefix="/drafts", tags=["drafts"])
 
 # FastAPI validates and serializes the returned value against `response_model`.
 @router.post("/{draft_id}/validate", response_model=QaResultResponse)
-def validate_draft(draft_id: Annotated[str, Path(min_length=1)], session: DbSession) -> QaResultResponse:
+def validate_draft(
+    draft_id: Annotated[str, Path(min_length=1)], session: DbSession, _: CurrentUserId
+) -> QaResultResponse:
     service = OrchestrationService(session)
     payload = service.validate_draft(draft_id)
     if payload is None:
@@ -32,6 +34,7 @@ def revise_draft(
     draft_id: Annotated[str, Path(min_length=1)],
     payload: DraftRevisionRequest,
     session: DbSession,
+    _: CurrentUserId,
 ) -> DraftResponse:
     service = OrchestrationService(session)
     revised = service.revise_draft(draft_id, payload.revision_prompt)

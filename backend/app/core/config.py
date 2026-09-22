@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from pydantic import SecretStr
 
 
 # Runs at module import time so configuration is available before FastAPI creates the app.
@@ -17,6 +18,13 @@ def _optional_env(name: str) -> str | None:
     return value
 
 
+def _required_secret(name: str, min_length: int) -> SecretStr:
+    value = os.getenv(name, "")
+    if len(value) < min_length:
+        raise RuntimeError(f"{name} must be set and contain at least {min_length} characters")
+    return SecretStr(value)
+
+
 # A frozen dataclass is an immutable, typed configuration object, similar to Object.freeze.
 @dataclass(frozen=True)
 class Settings:
@@ -25,6 +33,7 @@ class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./robo_blog.db")
     audio_storage_dir: str = os.getenv("AUDIO_STORAGE_DIR", "./audio_store")
     default_user_id: str = os.getenv("DEFAULT_USER_ID", "demo-user")
+    jwt_secret_key: SecretStr = _required_secret("JWT_SECRET_KEY", 32)
     openai_api_key: str | None = _optional_env("OPENAI_API_KEY")
     openai_base_url: str | None = _optional_env("OPENAI_BASE_URL")
     transcription_model: str = os.getenv("TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe")
