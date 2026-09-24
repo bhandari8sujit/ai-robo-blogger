@@ -1,18 +1,16 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
 
-import { uploadFragment } from "@/lib/api";
+import { useUploadFragmentMutation } from "@/lib/apiSlice";
 
 interface VoiceCapturePanelProps {
   blogId: string;
-  onFragmentUploaded: () => void;
 }
 
 type RecorderState = "idle" | "recording" | "encoding" | "uploading" | "uploaded" | "error";
 
-export function VoiceCapturePanel({ blogId, onFragmentUploaded }: VoiceCapturePanelProps) {
+export function VoiceCapturePanel({ blogId }: VoiceCapturePanelProps) {
   const [recorderState, setRecorderState] = useState<RecorderState>("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [seconds, setSeconds] = useState(0);
@@ -25,20 +23,7 @@ export function VoiceCapturePanel({ blogId, onFragmentUploaded }: VoiceCapturePa
   const animationRef = useRef<number | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
 
-  const uploadMutation = useMutation({
-    mutationFn: async (blob: Blob) => uploadFragment(blogId, blob),
-    onMutate: () => {
-      setRecorderState("uploading");
-    },
-    onSuccess: () => {
-      setRecorderState("uploaded");
-      onFragmentUploaded();
-    },
-    onError: (error) => {
-      setRecorderState("error");
-      setErrorMessage(error instanceof Error ? error.message : "Upload failed. Try again.");
-    },
-  });
+  const [uploadFragment] = useUploadFragmentMutation();
 
   const levelStyle = useMemo(
     () => ({
@@ -113,7 +98,16 @@ export function VoiceCapturePanel({ blogId, onFragmentUploaded }: VoiceCapturePa
           return;
         }
 
-        uploadMutation.mutate(blob);
+        setRecorderState("uploading");
+        uploadFragment({ blogId, file: blob })
+          .unwrap()
+          .then(() => {
+            setRecorderState("uploaded");
+          })
+          .catch((error) => {
+            setRecorderState("error");
+            setErrorMessage(error instanceof Error ? error.message : "Upload failed. Try again.");
+          });
         stream.getTracks().forEach((track) => track.stop());
       };
 

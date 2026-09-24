@@ -11,11 +11,11 @@ flowchart TD
     Shell --> Research[ResearchPanel]
     Shell --> Draft[DraftWorkspace]
     Brain[BlogBrainPanel] --> Shell
-    Shell --> Query[React Query]
-    Voice --> Client[lib/api.ts]
-    Research --> Client
-    Draft --> Client
-    Client --> Backend[FastAPI]
+    Shell --> Store[Redux Store / RTK Query]
+    Voice --> Slice[lib/apiSlice.ts]
+    Research --> Slice
+    Draft --> Slice
+    Slice --> Backend[FastAPI]
 ```
 
 ## Application Composition
@@ -24,33 +24,31 @@ flowchart TD
 | --- | --- | --- |
 | [app/page.tsx](../../frontend/app/page.tsx) | Route entry | Renders `AppShell`. |
 | [components/AppShell.tsx](../../frontend/components/AppShell.tsx) | Workspace coordinator | Holds the hard-coded blog id, queries Blog Brain and research data every 30 seconds, and owns research/draft mutations. |
-| [components/VoiceCapturePanel.tsx](../../frontend/components/VoiceCapturePanel.tsx) | Audio capture and upload | Uses `MediaRecorder` and `AudioContext`; rejects recordings under two seconds or 1 KB, then uploads WebM audio. |
+| [components/VoiceCapturePanel.tsx](../../frontend/components/VoiceCapturePanel.tsx) | Audio capture and upload | Uses `MediaRecorder` and `AudioContext`; rejects recordings under two seconds or 1 KB, then uploads WebM audio via the `uploadFragment` RTK Query mutation. |
 | [components/BlogBrainPanel.tsx](../../frontend/components/BlogBrainPanel.tsx) | Current understanding view | Displays thesis, arguments, sentiment, intent, questions, origin labels, and contradictions. It is available as a component but is not currently rendered by `AppShell`. |
 | [components/ResearchPanel.tsx](../../frontend/components/ResearchPanel.tsx) | Evidence queue | Lists claims that need evidence, lists research questions, and triggers a manual research run. |
 | [components/DraftWorkspace.tsx](../../frontend/components/DraftWorkspace.tsx) | Draft interaction | Generates drafts, requests revisions, requests sentence provenance, and lists sources. The visible Publish button has no action yet. |
 
 ## Client State And Transport
 
-[providers.tsx](../../frontend/providers.tsx) initializes TanStack React Query. Its default cache is fresh for 15 seconds; queries retry twice, mutations retry once, and browser focus does not automatically refetch.
+[providers.tsx](../../frontend/providers.tsx) wraps the app in a `react-redux` `Provider` backed by the store created in [lib/store.ts](../../frontend/lib/store.ts). [lib/apiSlice.ts](../../frontend/lib/apiSlice.ts) defines an RTK Query `createApi` slice that is the single source of remote server state; its reducer and middleware are registered on that store.
 
-[AppShell.tsx](../../frontend/components/AppShell.tsx) independently polls `/state` and `/research` every 30 seconds. It invalidates both queries after manual research and invalidates the state after an audio upload. Draft state is held by the generation mutation response, so it is not refetched from a standalone draft query.
+[AppShell.tsx](../../frontend/components/AppShell.tsx) polls `/state` and `/research` every 30 seconds via `pollingInterval` on `useGetBlogStateQuery` and `useGetResearchQuery`. Cache invalidation is declarative: `runResearch` and `uploadFragment` mutations declare `invalidatesTags` for the `BlogState`/`Research` tags they affect, so dependent queries refetch automatically instead of components calling an imperative invalidate function. Draft state is held by the generation mutation's returned data, so it is not refetched from a standalone draft query.
 
-[lib/runtime.ts](../../frontend/lib/runtime.ts) resolves the backend base URL, defaulting to `http://localhost:8001`; [lib/api.ts](../../frontend/lib/api.ts) is the typed HTTP boundary. JSON requests set `Content-Type: application/json`; audio uploads use `FormData` so the browser chooses the multipart boundary.
+[lib/runtime.ts](../../frontend/lib/runtime.ts) resolves the backend base URL, defaulting to `http://localhost:8001`; [lib/api.ts](../../frontend/lib/api.ts) remains the typed HTTP boundary used directly for auth (`register`, `login`, `getCurrentUser`), while [lib/apiSlice.ts](../../frontend/lib/apiSlice.ts) is the typed HTTP boundary for blog/draft/research/fragment data. JSON requests set `Content-Type: application/json`; audio uploads use `FormData` so the browser chooses the multipart boundary.
 
-## TanStack Query For Redux Toolkit Developers
+## Redux Toolkit / RTK Query Concepts
 
-TanStack Query manages **remote server state**. The nearest Redux Toolkit comparison is RTK Query, not a hand-written Redux slice: query data is cached by request key, freshness and retries are configured centrally, and components request data declaratively. This project has no Redux store, reducers, actions, or client-side normalized entity cache.
+This project uses **RTK Query**, the data-fetching and caching layer built into Redux Toolkit, rather than a hand-written Redux slice with manual reducers/actions for server data. Query results are cached by endpoint name plus serialized argument, and components read that cache declaratively through generated hooks.
 
-| TanStack Query concept | Closest Redux Toolkit / RTK Query concept | Here |
+| Concept | Where it lives | Purpose |
 | --- | --- | --- |
-| `QueryClientProvider` | `<Provider store={store}>` plus RTK Query API setup | [providers.tsx](../../frontend/providers.tsx) creates one client for the app. |
-| `useQuery({ queryKey, queryFn })` | Generated RTK Query `useGetXQuery` hook | `queryKey` identifies cached server data; `queryFn` performs the request. |
-| `queryKey: ["blog-state", BLOG_ID]` | RTK Query endpoint plus serialized arguments / cache key | Every consumer of the same key reads the same cached result. |
-| `staleTime: 15_000` | RTK Query cache refetch policy, though not a one-to-one setting | Data is considered fresh for 15 seconds; the shell also explicitly polls on a 30-second interval. |
-| `useMutation` | Generated RTK Query `useXMutation` hook | Represents an imperative server change, with pending/error/success state local to that hook instance. |
-| `invalidateQueries({ queryKey })` | `invalidatesTags` / `api.util.invalidateTags` | Marks matching cached reads stale and causes active queries to reload. |
-
-Unlike a Redux reducer, `onSuccess` does not update a central state tree automatically. In [AppShell.tsx](../../frontend/components/AppShell.tsx), upload and research success handlers explicitly invalidate related query keys. For an optimistic interaction, use `queryClient.setQueryData` or `onMutate`/rollback behavior, conceptually similar to patching RTK Query cache data.
+| `configureStore` | [lib/store.ts](../../frontend/lib/store.ts) | Combines the `api` reducer and RTK Query middleware into the single Redux store. |
+| `createApi` | [lib/apiSlice.ts](../../frontend/lib/apiSlice.ts) | Declares `fetchBaseQuery`, `tagTypes`, and every query/mutation endpoint. |
+| `useGetXQuery` | Generated per query endpoint | Subscribes a component to cached data for a given argument; supports `skip` and `pollingInterval`. |
+| `useXMutation` | Generated per mutation endpoint | Returns a trigger function plus `{ data, isLoading, error }` local to that hook instance. |
+| `providesTags` / `invalidatesTags` | Endpoint definitions in [lib/apiSlice.ts](../../frontend/lib/apiSlice.ts) | Declares which cached reads a query supplies and which a mutation should mark stale, replacing manual `invalidateQueries` calls. |
+| `<Provider store={store}>` | [providers.tsx](../../frontend/providers.tsx) | Makes the Redux store (and its RTK Query cache) available to the component tree. |
 
 ## Recording To Upload
 
@@ -60,13 +58,13 @@ Unlike a Redux reducer, `onSuccess` does not update a central state tree automat
 4. An `AnalyserNode` drives the visual level meter and a timer updates the elapsed seconds.
 5. On stop, tracks, animation, interval, and audio context are closed. The resulting `Blob` is rejected if too small or too short.
 6. `uploadFragment` posts it to `POST /blogs/demo-blog/fragments`.
-7. The upload completion refreshes the Blog Brain query. The backend processes the fragment before responding, so this completion represents synchronous processing, not queued work.
+7. The upload mutation's `invalidatesTags` marks the `BlogState` cache entry stale, so the Blog Brain query refetches automatically. The backend processes the fragment before responding, so this completion represents synchronous processing, not queued work.
 
 ## Draft And Research Actions
 
 | User action | Client request | Result shown |
 | --- | --- | --- |
-| Run research | `POST /blogs/{blogId}/research/run` | Research and Blog Brain query caches are invalidated. |
+| Run research | `POST /blogs/{blogId}/research/run` | The mutation's `invalidatesTags` marks the Research and Blog Brain caches stale, so both queries refetch. |
 | Regenerate | `POST /blogs/{blogId}/draft/generate` | Latest returned draft becomes the workspace preview. |
 | Apply revision | `POST /drafts/{draftId}/revise` | The input is cleared; the current implementation does not replace the shown draft with the response. |
 | Inspect provenance | `GET /drafts/{draftId}/sentences/{sentenceId}/why` | Shows the interpretation and confidence response. |
@@ -82,6 +80,6 @@ Unlike a Redux reducer, `onSuccess` does not update a central state tree automat
 - The `BlogBrainPanel` component is implemented but not rendered by `AppShell`, so users cannot currently see the Blog Brain described by the product flow.
 - The Publish button does not call an API endpoint, and there is no backend publish route.
 - A successful revision clears the prompt but does not replace the currently displayed draft with the mutation response; regenerate or a refetch is needed to show it.
-- `API_BASE_URL` is resolved when [lib/api.ts](../../frontend/lib/api.ts) loads. Set `window.__ROBO_BLOG_API_BASE_URL__` before the client bundle imports that module; changing it later will not change the cached constant.
+- `API_BASE_URL` is resolved when [lib/api.ts](../../frontend/lib/api.ts) loads, and `fetchBaseQuery`'s `baseUrl` is resolved the same way when [lib/apiSlice.ts](../../frontend/lib/apiSlice.ts) loads. Set `window.__ROBO_BLOG_API_BASE_URL__` before the client bundle imports either module; changing it later will not change the cached constant.
 - The SSE hook is disabled. If enabled as written, callers should pass a stable options object/callback to avoid unnecessary `EventSource` reconnections on component re-renders.
 - Browser recording requires HTTPS or `localhost` and microphone permission. The current client has no offline recording buffer or upload retry UI.

@@ -174,7 +174,7 @@ LangChain patterns to use:
 - Draft editor: AI draft with sentence-level provenance badges and revision controls.
 
 ## Frontend Data Strategy
-- React Query for API state.
+- Redux Toolkit (RTK Query) for API state.
 - SSE/websocket channel for live processing updates.
 - Optimistic local fragment cards while uploads/transcription run.
 

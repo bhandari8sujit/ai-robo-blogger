@@ -1,9 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
 
-import { getSentenceWhy, getSources, reviseDraft } from "@/lib/api";
+import { useGetSentenceWhyQuery, useGetSourcesQuery, useReviseDraftMutation } from "@/lib/apiSlice";
 import { Draft } from "@/lib/types";
 
 interface DraftWorkspaceProps {
@@ -15,24 +14,14 @@ export function DraftWorkspace({ draft, onRegenerateDraft }: DraftWorkspaceProps
   const [revisionPrompt, setRevisionPrompt] = useState("");
   const [sentenceId, setSentenceId] = useState("");
 
-  const sourcesQuery = useQuery({
-    queryKey: ["sources", draft?.id],
-    queryFn: () => getSources(draft!.id),
-    enabled: Boolean(draft?.id),
-  });
+  const sourcesQuery = useGetSourcesQuery(draft?.id ?? "", { skip: !draft?.id });
 
-  const reviseMutation = useMutation({
-    mutationFn: async (prompt: string) => reviseDraft(draft!.id, prompt),
-    onSuccess: () => {
-      setRevisionPrompt("");
-    },
-  });
+  const [reviseDraft, reviseMutation] = useReviseDraftMutation();
 
-  const whyQuery = useQuery({
-    queryKey: ["sentence-why", draft?.id, sentenceId],
-    queryFn: () => getSentenceWhy(draft!.id, sentenceId),
-    enabled: Boolean(draft?.id && sentenceId),
-  });
+  const whyQuery = useGetSentenceWhyQuery(
+    { draftId: draft?.id ?? "", sentenceId },
+    { skip: !(draft?.id && sentenceId) },
+  );
 
   const preview = useMemo(() => {
     if (!draft?.content) {
@@ -79,10 +68,14 @@ export function DraftWorkspace({ draft, onRegenerateDraft }: DraftWorkspaceProps
           <button
             className="button button-secondary"
             type="button"
-            disabled={!draft || !revisionPrompt.trim() || reviseMutation.isPending}
-            onClick={() => reviseMutation.mutate(revisionPrompt)}
+            disabled={!draft || !revisionPrompt.trim() || reviseMutation.isLoading}
+            onClick={() => {
+              void reviseDraft({ draftId: draft!.id, revisionPrompt })
+                .unwrap()
+                .then(() => setRevisionPrompt(""));
+            }}
           >
-            {reviseMutation.isPending ? "Revising" : "Apply revision"}
+            {reviseMutation.isLoading ? "Revising" : "Apply revision"}
           </button>
         </div>
 

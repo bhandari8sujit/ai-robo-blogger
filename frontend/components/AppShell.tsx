@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-
 import { BlogBrainPanel } from "@/components/BlogBrainPanel";
 import { DraftWorkspace } from "@/components/DraftWorkspace";
 import { ResearchPanel } from "@/components/ResearchPanel";
 import { VoiceCapturePanel } from "@/components/VoiceCapturePanel";
-import { generateDraft, getBlogState, getResearch, runResearch } from "@/lib/api";
+import { useGenerateDraftMutation, useGetBlogStateQuery, useGetResearchQuery, useRunResearchMutation } from "@/lib/apiSlice";
 
 const BLOG_ID = "demo-blog";
 
@@ -17,43 +14,17 @@ interface AppShellProps {
 }
 
 export function AppShell({ email, onLogout }: AppShellProps) {
-  const queryClient = useQueryClient();
-  const [draftVersion, setDraftVersion] = useState(0);
+  const stateQuery = useGetBlogStateQuery(BLOG_ID, { pollingInterval: 30_000 });
+  const researchQuery = useGetResearchQuery(BLOG_ID, { pollingInterval: 30_000 });
 
-  const stateQuery = useQuery({
-    queryKey: ["blog-state", BLOG_ID],
-    queryFn: () => getBlogState(BLOG_ID),
-    retry: 1,
-    refetchInterval: 30_000,
-  });
-
-  const researchQuery = useQuery({
-    queryKey: ["research", BLOG_ID],
-    queryFn: () => getResearch(BLOG_ID),
-    retry: 1,
-    refetchInterval: 30_000,
-  });
-
-  const draftMutation = useMutation({
-    mutationFn: () => generateDraft(BLOG_ID),
-    onSuccess: () => {
-      setDraftVersion((version) => version + 1);
-    },
-  });
-
-  const researchMutation = useMutation({
-    mutationFn: () => runResearch(BLOG_ID),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["research", BLOG_ID] });
-      void queryClient.invalidateQueries({ queryKey: ["blog-state", BLOG_ID] });
-    },
-  });
+  const [generateDraft, draftMutation] = useGenerateDraftMutation();
+  const [runResearch, researchMutation] = useRunResearchMutation();
 
   // const stream = useEventStream(BLOG_ID, {
   //   enabled: true,
   //   onMessage: () => {
-  //     void queryClient.invalidateQueries({ queryKey: ["blog-state", BLOG_ID] });
-  //     void queryClient.invalidateQueries({ queryKey: ["research", BLOG_ID] });
+  //     void stateQuery.refetch();
+  //     void researchQuery.refetch();
   //   },
   // });
 
@@ -77,21 +48,16 @@ export function AppShell({ email, onLogout }: AppShellProps) {
       </section>
 
       <section className="layout-grid">
-        <VoiceCapturePanel
-          blogId={BLOG_ID}
-          onFragmentUploaded={() => {
-            void queryClient.invalidateQueries({ queryKey: ["blog-state", BLOG_ID] });
-          }}
-        />
+        <VoiceCapturePanel blogId={BLOG_ID} />
 
         <ResearchPanel
           claims={state?.claims ?? []}
           questions={researchQuery.data ?? []}
-          running={researchMutation.isPending}
-          onRunResearch={() => researchMutation.mutate()}
+          running={researchMutation.isLoading}
+          onRunResearch={() => void runResearch(BLOG_ID)}
         />
 
-        <DraftWorkspace draft={draftMutation.data ?? null} onRegenerateDraft={() => draftMutation.mutate()} />
+        <DraftWorkspace draft={draftMutation.data ?? null} onRegenerateDraft={() => void generateDraft(BLOG_ID)} />
       </section>
     </main>
   );
