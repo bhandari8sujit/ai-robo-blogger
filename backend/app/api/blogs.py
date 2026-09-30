@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, HTTPException, Path, UploadFile
 
 from app.core.deps import CurrentUserId, DbSession
 from app.repositories.blog_repository import BlogRepository
-from app.schemas.api import BlogCreateRequest, BlogResponse, BlogStateResponse, FragmentResponse
+from app.schemas.api import BlogCreateRequest, BlogResponse, BlogStateResponse, FragmentResponse, ResearchQuestionResponse
 from app.services.orchestration_service import OrchestrationService
 from app.services.storage_service import StorageService
 
@@ -104,3 +104,33 @@ def get_blog_state(blog_id: Annotated[str, Path(min_length=1)], session: DbSessi
         contradictionCount=brain.payload.get("contradictions", 0),
         processingStatus=fragments[-1].status if fragments else "ready",
     )
+
+
+@router.get("/{blog_id}/research", response_model=list[ResearchQuestionResponse])
+def get_research_questions(
+    blog_id: Annotated[str, Path(min_length=1)], session: DbSession
+) -> list[ResearchQuestionResponse]:
+    repo = BlogRepository(session)
+    if repo.get_blog(blog_id) is None:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    source_count = len(repo.list_sources(blog_id))
+    return [
+        ResearchQuestionResponse(
+            id=item.id,
+            question=item.question,
+            status=item.status,
+            priority=item.priority,
+            sourceCount=source_count,
+        )
+        for item in repo.list_research_questions(blog_id)
+    ]
+
+
+@router.post("/{blog_id}/research/run")
+def run_research(
+    blog_id: Annotated[str, Path(min_length=1)], session: DbSession, user_id: CurrentUserId
+) -> dict[str, int]:
+    repo = BlogRepository(session)
+    if repo.get_owned_blog(blog_id, user_id) is None:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    return {"completed": OrchestrationService(session).run_research(blog_id, deep=True)}

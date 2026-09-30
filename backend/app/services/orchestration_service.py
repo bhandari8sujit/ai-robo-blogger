@@ -2,6 +2,8 @@ from sqlmodel import Session
 
 from app.agents.blog_brain_state_agent import BlogBrainStateAgent
 from app.agents.fragment_analysis_agent import FragmentAnalysisAgent
+from app.agents.research_agent import ResearchAgent
+from app.agents.research_planner_agent import ResearchPlannerAgent
 from app.agents.transcription_agent import TranscriptionAgent
 from app.repositories.blog_repository import BlogRepository
 
@@ -14,6 +16,8 @@ class OrchestrationService:
         self.transcription_agent = TranscriptionAgent()
         self.analysis_agent = FragmentAnalysisAgent()
         self.blog_brain_agent = BlogBrainStateAgent()
+        self.research_planner_agent = ResearchPlannerAgent()
+        self.research_agent = ResearchAgent()
 
     def process_fragment(self, fragment_id: str) -> str | None:
         fragment = self.repo.get_fragment(fragment_id)
@@ -44,9 +48,56 @@ class OrchestrationService:
         }
         updated = self.blog_brain_agent.run(current.payload if current else {}, analysis, guardrails)
         self.repo.save_blog_brain(fragment.blog_id, updated)
-        self.repo.upsert_claims(fragment.blog_id, analysis["claims"])
+        claims = self.repo.upsert_claims(fragment.blog_id, analysis["claims"])
+        existing_questions = [item.question for item in self.repo.list_research_questions(fragment.blog_id)]
+        plans = self.research_planner_agent.run(analysis["claims"], existing_questions)
+        self.repo.create_research_questions(fragment.blog_id, plans)
 
-        fragment.status = "analyzed"
+        if any(claim.source_required for claim in claims):
+            completed = self.run_research(fragment.blog_id)
+            if completed:
+                fragment.status = "researched"
+
+        if fragment.status != "researched":
+            fragment.status = "analyzed"
         self.repo.session.add(fragment)
         self.repo.session.commit()
         return fragment.status
+
+    def run_research(self, blog_id: str, *, deep: bool = False) -> int:
+        completed = 0
+        claims = [claim for claim in self.repo.list_claims(blog_id) if claim.source_required]
+        for question in self.repo.list_research_questions(blog_id):
+            if question.status != "pending":
+                continue
+            finding = self.research_agent.run(question.question, deep=deep)
+            sources_by_url = {
+                item["url"]: self.repo.add_source(blog_id, item)
+                for item in finding["sources"]
+            }
+            matching_claims = [
+                claim
+                for claim in claims
+                if self.repo.normalize_claim(claim.text) in self.repo.normalize_claim(question.question)
+            ]
+            for evidence in finding["evidence"]:
+                source = sources_by_url.get(evidence.get("source_url"))
+                if source is None:
+                    continue
+                for claim in matching_claims:
+                    self.repo.add_evidence(
+                        claim.id,
+                        source.id,
+                        evidence["supporting_text"],
+                        evidence["confidence"],
+                    )
+            sufficient = finding["status"] == "completed"
+            self.repo.mark_research_complete(question.id, sufficient=sufficient)
+            for claim in matching_claims:
+                claim.research_status = "completed" if sufficient else "insufficient"
+                if sufficient:
+                    claim.origin_type = "RESEARCH_FACT"
+                self.repo.session.add(claim)
+            self.repo.session.commit()
+            completed += int(sufficient)
+        return completed

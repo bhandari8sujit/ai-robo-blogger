@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
@@ -33,6 +34,8 @@ def test_storage_and_offline_analysis(tmp_path: Path, monkeypatch) -> None:
 def test_processing_updates_brain_and_deduplicates_claims(monkeypatch) -> None:
     monkeypatch.setattr("app.agents.fragment_analysis_agent.run_structured_prompt", lambda *_args, **_kwargs: None)
     monkeypatch.setattr("app.agents.blog_brain_state_agent.run_structured_prompt", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("app.agents.research_planner_agent.run_structured_prompt", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr("app.agents.research_agent.settings", SimpleNamespace(tavily_api_key=None))
     repo, session = _repository()
     try:
         blog = repo.create_blog("owner", "AI and programming")

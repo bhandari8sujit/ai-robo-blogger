@@ -80,3 +80,31 @@ class Claim(SQLModel, table=True):
     research_status: str = Field(default="pending", index=True)
     confidence: float = Field(default=0.5)
     origin_type: str = Field(default="AI_INFERENCE")
+
+
+class ResearchQuestion(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    question: str
+    normalized_question: str = Field(index=True)
+    status: str = Field(default="pending", index=True)
+    priority: str = Field(default="medium")
+
+
+class Source(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    title: str
+    url: str = Field(index=True)
+    publisher: str | None = Field(default=None)
+    published_at: str | None = Field(default=None)
+    credibility: float = Field(default=0.6)
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class Evidence(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    claim_id: str = Field(index=True)
+    source_id: str = Field(index=True)
+    supporting_text: str
+    confidence: float = Field(default=0.6)

@@ -3,7 +3,17 @@ from typing import Any
 
 from sqlmodel import Session, desc, select
 
-from app.models import Blog, BlogBrainSnapshot, Claim, Fragment, FragmentAnalysis, Guardrail
+from app.models import (
+    Blog,
+    BlogBrainSnapshot,
+    Claim,
+    Evidence,
+    Fragment,
+    FragmentAnalysis,
+    Guardrail,
+    ResearchQuestion,
+    Source,
+)
 
 
 class BlogRepository:
@@ -141,3 +151,67 @@ class BlogRepository:
 
     def list_claims(self, blog_id: str) -> list[Claim]:
         return list(self.session.exec(select(Claim).where(Claim.blog_id == blog_id).order_by(Claim.id)))
+
+    def create_research_questions(self, blog_id: str, questions: list[dict[str, Any]]) -> list[ResearchQuestion]:
+        output: list[ResearchQuestion] = []
+        for question_data in questions:
+            normalized = " ".join(question_data["question"].casefold().split()).rstrip(".!?")
+            statement = select(ResearchQuestion).where(
+                ResearchQuestion.blog_id == blog_id,
+                ResearchQuestion.normalized_question == normalized,
+            )
+            item = self.session.exec(statement).first()
+            if item is None:
+                item = ResearchQuestion(
+                    blog_id=blog_id,
+                    question=question_data["question"],
+                    normalized_question=normalized,
+                    priority=question_data.get("priority", "medium"),
+                )
+                self.session.add(item)
+            output.append(item)
+        self.session.commit()
+        return output
+
+    def list_research_questions(self, blog_id: str) -> list[ResearchQuestion]:
+        statement = select(ResearchQuestion).where(ResearchQuestion.blog_id == blog_id).order_by(ResearchQuestion.id)
+        return list(self.session.exec(statement))
+
+    def mark_research_complete(self, question_id: str, *, sufficient: bool) -> None:
+        question = self.session.get(ResearchQuestion, question_id)
+        if question is not None:
+            question.status = "completed" if sufficient else "insufficient"
+            self.session.add(question)
+            self.session.commit()
+
+    def add_source(self, blog_id: str, source_data: dict[str, Any]) -> Source:
+        statement = select(Source).where(Source.blog_id == blog_id, Source.url == source_data["url"])
+        source = self.session.exec(statement).first()
+        if source is None:
+            source = Source(blog_id=blog_id, **source_data)
+            self.session.add(source)
+            self.session.commit()
+            self.session.refresh(source)
+        return source
+
+    def list_sources(self, blog_id: str) -> list[Source]:
+        return list(self.session.exec(select(Source).where(Source.blog_id == blog_id).order_by(Source.retrieved_at)))
+
+    def add_evidence(self, claim_id: str, source_id: str, supporting_text: str, confidence: float) -> Evidence:
+        statement = select(Evidence).where(
+            Evidence.claim_id == claim_id,
+            Evidence.source_id == source_id,
+            Evidence.supporting_text == supporting_text,
+        )
+        item = self.session.exec(statement).first()
+        if item is None:
+            item = Evidence(
+                claim_id=claim_id,
+                source_id=source_id,
+                supporting_text=supporting_text,
+                confidence=confidence,
+            )
+            self.session.add(item)
+            self.session.commit()
+            self.session.refresh(item)
+        return item

@@ -76,3 +76,20 @@ class BlogStateResponse(ApiBaseModel):
     claims: list[ClaimResponse] = Field(default_factory=list)
     contradiction_count: int = Field(default=0, alias="contradictionCount")
     processing_status: str = Field(default="ready", alias="processingStatus")
+
+
+class ResearchQuestionResponse(ApiBaseModel):
+    id: str
+    question: str
+    status: Literal["pending", "completed", "insufficient"]
+    priority: Literal["low", "medium", "high"]
+    source_count: int = Field(alias="sourceCount")
+
+
+class SourceResponse(ApiBaseModel):
+    id: str
+    title: str
+    url: str
+    publisher: str | None = None
+    published_at: str | None = Field(default=None, alias="publishedAt")
+    credibility: float

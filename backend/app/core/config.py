@@ -42,6 +42,7 @@ class Settings:
     transcription_model: str = os.getenv("TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe")
     llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
     llm_strong_model: str = os.getenv("LLM_STRONG_MODEL", "gpt-4.1")
+    tavily_api_key: str | None = _optional_env("TAVILY_API_KEY")
     # A tuple is immutable; the ellipsis means "zero or more strings" in a type annotation.
     cors_origins: tuple[str, ...] = tuple(
         origin.strip()
