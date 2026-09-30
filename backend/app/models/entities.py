@@ -46,3 +46,37 @@ class Guardrail(SQLModel, table=True):
     citation_required: bool = Field(default=True)
     # `default_factory` gives every row its own list instead of sharing a mutable default.
     banned_topics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+
+
+class Fragment(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    audio_url: str
+    transcript: str | None = Field(default=None)
+    duration_seconds: float = Field(default=0)
+    status: str = Field(default="uploaded", index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class FragmentAnalysis(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    fragment_id: str = Field(index=True)
+    summary: str
+    # JSON columns preserve structured extraction without splitting every list into another table.
+    topics: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    claims: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    questions: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    personal_experiences: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    sentiment: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    intent: str
+
+
+class Claim(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    text: str
+    normalized_text: str = Field(index=True)
+    source_required: bool = Field(default=True)
+    research_status: str = Field(default="pending", index=True)
+    confidence: float = Field(default=0.5)
+    origin_type: str = Field(default="AI_INFERENCE")

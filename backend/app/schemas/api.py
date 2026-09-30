@@ -40,6 +40,24 @@ class BlogResponse(ApiBaseModel):
     updated_at: datetime = Field(alias="updatedAt")
 
 
+class FragmentResponse(ApiBaseModel):
+    id: str
+    blog_id: str = Field(alias="blogId")
+    created_at: datetime = Field(alias="createdAt")
+    duration_seconds: float = Field(alias="durationSeconds")
+    transcript: str | None = None
+    status: str
+
+
+class ClaimResponse(ApiBaseModel):
+    id: str
+    text: str
+    requires_research: bool = Field(alias="requiresResearch")
+    confidence: float
+    origin_type: Literal["USER_SAID", "AI_INFERENCE", "RESEARCH_FACT", "AI_GENERATED"] = Field(alias="originType")
+    research_status: Literal["pending", "completed", "insufficient"] = Field(alias="researchStatus")
+
+
 class BlogBrainCard(ApiBaseModel):
     value: Any
     confidence: float
@@ -55,6 +73,6 @@ class BlogStateResponse(ApiBaseModel):
     sentiment: BlogBrainCard
     intent: BlogBrainCard
     open_questions: BlogBrainCard = Field(alias="openQuestions")
-    claims: list[dict[str, Any]] = Field(default_factory=list)
+    claims: list[ClaimResponse] = Field(default_factory=list)
     contradiction_count: int = Field(default=0, alias="contradictionCount")
     processing_status: str = Field(default="ready", alias="processingStatus")

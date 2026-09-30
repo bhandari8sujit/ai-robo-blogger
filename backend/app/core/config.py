@@ -35,7 +35,13 @@ class Settings:
         "DATABASE_URL",
         "postgresql+psycopg://robo_blog:robo_blog_password@localhost:5432/robo_blog",
     )
+    audio_storage_dir: str = os.getenv("AUDIO_STORAGE_DIR", "./audio_store")
     jwt_secret_key: SecretStr = _required_secret("JWT_SECRET_KEY", 32)
+    openai_api_key: str | None = _optional_env("OPENAI_API_KEY")
+    openai_base_url: str | None = _optional_env("OPENAI_BASE_URL")
+    transcription_model: str = os.getenv("TRANSCRIPTION_MODEL", "gpt-4o-mini-transcribe")
+    llm_model: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
+    llm_strong_model: str = os.getenv("LLM_STRONG_MODEL", "gpt-4.1")
     # A tuple is immutable; the ellipsis means "zero or more strings" in a type annotation.
     cors_origins: tuple[str, ...] = tuple(
         origin.strip()
