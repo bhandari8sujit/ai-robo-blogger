@@ -11,10 +11,9 @@ Copy `.env.example` to `.env`, then generate a local JWT signing key:
 python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Set the result as `JWT_SECRET_KEY` in `.env`, start PostgreSQL, install the dependencies, and start the API:
+Set the result as `JWT_SECRET_KEY` in `.env`, install the dependencies, and start the API:
 
 ```powershell
-docker compose up -d postgres
 uv sync --extra dev
 uv run fastapi dev
 ```

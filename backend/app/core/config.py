@@ -33,7 +33,7 @@ class Settings:
     app_version: str = "0.1.0"
     database_url: str = os.getenv(
         "DATABASE_URL",
-        "postgresql+psycopg://robo_blog:robo_blog_password@localhost:5432/robo_blog",
+        "sqlite:///./robo_blog.db",
     )
     jwt_secret_key: SecretStr = _required_secret("JWT_SECRET_KEY", 32)
     # A tuple is immutable; the ellipsis means "zero or more strings" in a type annotation.
