@@ -12,6 +12,7 @@ from app.models import (
     Fragment,
     FragmentAnalysis,
     Guardrail,
+    ProcessingEvent,
     QaResult,
     ResearchQuestion,
     Source,
@@ -261,3 +262,27 @@ class BlogRepository:
         self.session.commit()
         self.session.refresh(item)
         return item
+
+    def add_event(
+        self,
+        blog_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        status: str = "ok",
+        attempt: int = 1,
+    ) -> ProcessingEvent:
+        event = ProcessingEvent(
+            blog_id=blog_id,
+            event_type=event_type,
+            payload=payload,
+            status=status,
+            attempt=attempt,
+        )
+        self.session.add(event)
+        self.session.commit()
+        self.session.refresh(event)
+        return event
+
+    def timeline(self, blog_id: str) -> list[ProcessingEvent]:
+        statement = select(ProcessingEvent).where(ProcessingEvent.blog_id == blog_id).order_by(ProcessingEvent.created_at)
+        return list(self.session.exec(statement))

@@ -7,6 +7,7 @@ from app.agents.research_planner_agent import ResearchPlannerAgent
 from app.agents.qa_guardrails_agent import QaGuardrailsAgent
 from app.agents.transcription_agent import TranscriptionAgent
 from app.agents.writing_agent import WritingAgent
+from app.core.events import event_hub
 from app.repositories.blog_repository import BlogRepository
 
 
@@ -23,10 +24,15 @@ class OrchestrationService:
         self.writing_agent = WritingAgent()
         self.qa_agent = QaGuardrailsAgent()
 
-    def process_fragment(self, fragment_id: str) -> str | None:
+    async def process_fragment(self, fragment_id: str) -> str | None:
+        # Agents run synchronously in this MVP; async is used here for non-blocking event publication.
         fragment = self.repo.get_fragment(fragment_id)
         if fragment is None:
             return None
+        if fragment.status == "validated":
+            return fragment.status
+
+        await self._event(fragment.blog_id, "fragment.received", {"fragment_id": fragment.id})
 
         if not fragment.transcript:
             transcription = self.transcription_agent.run(fragment.id, fragment.audio_url)
@@ -34,12 +40,19 @@ class OrchestrationService:
                 fragment.status = transcription["status"]
                 self.repo.session.add(fragment)
                 self.repo.session.commit()
+                await self._event(
+                    fragment.blog_id,
+                    "fragment.transcription_failed",
+                    {"fragment_id": fragment.id, "status": fragment.status},
+                    status="failed",
+                )
                 return fragment.status
             fragment.transcript = transcription["transcript"]
             fragment.status = "transcribed"
 
         analysis = self.analysis_agent.run(fragment.transcript or "")
         self.repo.save_fragment_analysis(fragment.id, analysis)
+        await self._event(fragment.blog_id, "fragment.analyzed", {"fragment_id": fragment.id})
 
         current = self.repo.get_latest_blog_brain(fragment.blog_id)
         guardrail = self.repo.get_guardrail(fragment.blog_id)
@@ -52,21 +65,53 @@ class OrchestrationService:
         }
         updated = self.blog_brain_agent.run(current.payload if current else {}, analysis, guardrails)
         self.repo.save_blog_brain(fragment.blog_id, updated)
+        await self._event(fragment.blog_id, "blog_brain.updated", {"fragment_id": fragment.id})
         claims = self.repo.upsert_claims(fragment.blog_id, analysis["claims"])
         existing_questions = [item.question for item in self.repo.list_research_questions(fragment.blog_id)]
         plans = self.research_planner_agent.run(analysis["claims"], existing_questions)
         self.repo.create_research_questions(fragment.blog_id, plans)
+        if plans:
+            await self._event(fragment.blog_id, "research.queued", {"count": len(plans)})
 
         if any(claim.source_required for claim in claims):
             completed = self.run_research(fragment.blog_id)
             if completed:
                 fragment.status = "researched"
+                await self._event(fragment.blog_id, "research.completed", {"count": completed})
 
         if fragment.status != "researched":
             fragment.status = "analyzed"
         self.repo.session.add(fragment)
         self.repo.session.commit()
+
+        draft_payload = self.generate_draft(fragment.blog_id)
+        if draft_payload is not None:
+            await self._event(
+                fragment.blog_id,
+                "draft.updated",
+                {"draft_id": draft_payload["id"], "version": draft_payload["version"]},
+            )
+            qa = self.validate_draft(str(draft_payload["id"]))
+            fragment.status = "validated"
+            self.repo.session.add(fragment)
+            self.repo.session.commit()
+            await self._event(
+                fragment.blog_id,
+                "draft.validated",
+                {"draft_id": draft_payload["id"], "passed": qa["passed"] if qa else False},
+            )
         return fragment.status
+
+    async def _event(
+        self,
+        blog_id: str,
+        event_type: str,
+        payload: dict[str, object],
+        *,
+        status: str = "ok",
+    ) -> None:
+        self.repo.add_event(blog_id, event_type, payload, status=status)
+        await event_hub.publish(event_type, blog_id, payload)
 
     def run_research(self, blog_id: str, *, deep: bool = False) -> int:
         completed = 0

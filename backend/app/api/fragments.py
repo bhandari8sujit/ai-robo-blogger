@@ -10,7 +10,7 @@ router = APIRouter(prefix="/fragments", tags=["fragments"])
 
 
 @router.post("/{fragment_id}/process")
-def process_fragment(
+async def process_fragment(
     fragment_id: Annotated[str, Path(min_length=1)],
     session: DbSession,
     user_id: CurrentUserId,
@@ -21,5 +21,5 @@ def process_fragment(
     if fragment is None:
         raise HTTPException(status_code=404, detail="Fragment not found")
 
-    status = OrchestrationService(session).process_fragment(fragment.id)
+    status = await OrchestrationService(session).process_fragment(fragment.id)
     return {"status": status or "not_found"}

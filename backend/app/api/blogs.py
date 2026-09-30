@@ -5,7 +5,14 @@ from fastapi import APIRouter, File, HTTPException, Path, UploadFile
 
 from app.core.deps import CurrentUserId, DbSession
 from app.repositories.blog_repository import BlogRepository
-from app.schemas.api import BlogCreateRequest, BlogResponse, BlogStateResponse, FragmentResponse, ResearchQuestionResponse
+from app.schemas.api import (
+    BlogCreateRequest,
+    BlogResponse,
+    BlogStateResponse,
+    FragmentResponse,
+    ResearchQuestionResponse,
+    TimelineItem,
+)
 from app.services.orchestration_service import OrchestrationService
 from app.services.storage_service import StorageService
 
@@ -55,7 +62,7 @@ async def upload_fragment(
     suffix = "." + audio.filename.rsplit(".", 1)[1] if audio.filename and "." in audio.filename else ".webm"
     audio_url, duration = StorageService().save_audio(blog_id, content, suffix)
     fragment = repo.create_fragment(blog_id, audio_url, duration)
-    OrchestrationService(session).process_fragment(fragment.id)
+    await OrchestrationService(session).process_fragment(fragment.id)
     session.refresh(fragment)
     return FragmentResponse.model_validate(fragment, from_attributes=True)
 
@@ -134,3 +141,11 @@ def run_research(
     if repo.get_owned_blog(blog_id, user_id) is None:
         raise HTTPException(status_code=404, detail="Blog not found")
     return {"completed": OrchestrationService(session).run_research(blog_id, deep=True)}
+
+
+@router.get("/{blog_id}/timeline", response_model=list[TimelineItem])
+def get_timeline(blog_id: Annotated[str, Path(min_length=1)], session: DbSession) -> list[TimelineItem]:
+    repo = BlogRepository(session)
+    if repo.get_blog(blog_id) is None:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    return [TimelineItem.model_validate(event, from_attributes=True) for event in repo.timeline(blog_id)]

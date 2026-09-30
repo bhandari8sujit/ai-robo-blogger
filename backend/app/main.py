@@ -2,20 +2,32 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlmodel import Session, select
 
 from app.api.auth import router as auth_router
 from app.api.blogs import router as blogs_router
 from app.api.fragments import router as fragments_router
 from app.api.drafts import router as drafts_router
 from app.api.generation import router as generation_router
+from app.api.events import router as events_router
 from app.core.config import settings
-from app.core.database import create_db_and_tables
+from app.core.database import create_db_and_tables, engine
+from app.models import Blog, BlogBrainSnapshot, Guardrail
+from app.repositories.blog_repository import BlogRepository
 
 # `asynccontextmanager` turns this setup/teardown coroutine into FastAPI's application lifespan hook.
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # `_` intentionally discards the FastAPI app argument.
     create_db_and_tables()
+    # Seed one public demo state without duplicating it on each development restart.
+    with Session(engine) as session:
+        existing = session.exec(select(Blog).where(Blog.id == "demo-blog")).first()
+        if existing is None:
+            session.add(Blog(id="demo-blog", user_id=settings.default_user_id, title="My New Blog"))
+            session.add(Guardrail(blog_id="demo-blog"))
+            session.add(BlogBrainSnapshot(blog_id="demo-blog", version=1, payload=BlogRepository.empty_brain()))
+            session.commit()
     # FastAPI starts serving after this yield; code after it would run during shutdown.
     yield
 
@@ -43,3 +55,4 @@ app.include_router(blogs_router)
 app.include_router(fragments_router)
 app.include_router(generation_router)
 app.include_router(drafts_router)
+app.include_router(events_router)

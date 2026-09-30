@@ -129,3 +129,12 @@ class QaResultResponse(ApiBaseModel):
     voice_score: float = Field(alias="voiceScore")
     factuality_score: float = Field(alias="factualityScore")
     publish_blocked: bool = Field(alias="publishBlocked")
+
+
+class TimelineItem(ApiBaseModel):
+    id: str
+    event_type: str = Field(alias="eventType")
+    payload: dict[str, Any]
+    status: str
+    attempt: int
+    created_at: datetime = Field(alias="createdAt")

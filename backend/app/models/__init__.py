@@ -7,6 +7,7 @@ from app.models.entities import (
 	Fragment,
 	FragmentAnalysis,
 	Guardrail,
+	ProcessingEvent,
 	QaResult,
 	ResearchQuestion,
 	Source,
@@ -15,5 +16,5 @@ from app.models.entities import (
 
 __all__ = [
 	"Blog", "BlogBrainSnapshot", "Claim", "Draft", "Evidence", "Fragment", "FragmentAnalysis",
-	"Guardrail", "QaResult", "ResearchQuestion", "Source", "User",
+	"Guardrail", "ProcessingEvent", "QaResult", "ResearchQuestion", "Source", "User",
 ]

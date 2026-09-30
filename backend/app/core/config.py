@@ -36,6 +36,7 @@ class Settings:
         "postgresql+psycopg://robo_blog:robo_blog_password@localhost:5432/robo_blog",
     )
     audio_storage_dir: str = os.getenv("AUDIO_STORAGE_DIR", "./audio_store")
+    default_user_id: str = os.getenv("DEFAULT_USER_ID", "demo-user")
     jwt_secret_key: SecretStr = _required_secret("JWT_SECRET_KEY", 32)
     openai_api_key: str | None = _optional_env("OPENAI_API_KEY")
     openai_base_url: str | None = _optional_env("OPENAI_BASE_URL")

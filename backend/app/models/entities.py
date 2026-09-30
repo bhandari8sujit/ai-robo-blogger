@@ -128,3 +128,13 @@ class QaResult(SQLModel, table=True):
     factuality_score: float = Field(default=0)
     publish_blocked: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ProcessingEvent(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    event_type: str = Field(index=True)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    status: str = Field(default="ok")
+    attempt: int = Field(default=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
