@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.auth import router as auth_router
 from app.api.blogs import router as blogs_router
 from app.api.fragments import router as fragments_router
+from app.api.drafts import router as drafts_router
+from app.api.generation import router as generation_router
 from app.core.config import settings
 from app.core.database import create_db_and_tables
 
@@ -39,3 +41,5 @@ def healthcheck() -> dict[str, str]:
 app.include_router(auth_router)
 app.include_router(blogs_router)
 app.include_router(fragments_router)
+app.include_router(generation_router)
+app.include_router(drafts_router)

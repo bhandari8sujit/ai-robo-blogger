@@ -7,10 +7,12 @@ from app.models import (
     Blog,
     BlogBrainSnapshot,
     Claim,
+    Draft,
     Evidence,
     Fragment,
     FragmentAnalysis,
     Guardrail,
+    QaResult,
     ResearchQuestion,
     Source,
 )
@@ -214,4 +216,48 @@ class BlogRepository:
             self.session.add(item)
             self.session.commit()
             self.session.refresh(item)
+        return item
+
+    def list_evidence(self, blog_id: str) -> list[tuple[Evidence, Source]]:
+        statement = (
+            select(Evidence, Source)
+            .join(Source, Source.id == Evidence.source_id)
+            .join(Claim, Claim.id == Evidence.claim_id)
+            .where(Claim.blog_id == blog_id)
+        )
+        return list(self.session.exec(statement))
+
+    def save_draft(self, blog_id: str, content: str, provenance_map: dict[str, Any]) -> Draft:
+        latest = self.get_latest_draft(blog_id)
+        draft = Draft(
+            blog_id=blog_id,
+            content=content,
+            version=1 if latest is None else latest.version + 1,
+            provenance_map=provenance_map,
+        )
+        self.session.add(draft)
+        self.session.commit()
+        self.session.refresh(draft)
+        return draft
+
+    def get_draft(self, draft_id: str) -> Draft | None:
+        return self.session.get(Draft, draft_id)
+
+    def get_owned_draft(self, draft_id: str, user_id: str) -> Draft | None:
+        statement = (
+            select(Draft)
+            .join(Blog, Blog.id == Draft.blog_id)
+            .where(Draft.id == draft_id, Blog.user_id == user_id)
+        )
+        return self.session.exec(statement).first()
+
+    def get_latest_draft(self, blog_id: str) -> Draft | None:
+        statement = select(Draft).where(Draft.blog_id == blog_id).order_by(desc(Draft.version))
+        return self.session.exec(statement).first()
+
+    def save_qa_result(self, draft_id: str, payload: dict[str, Any]) -> QaResult:
+        item = QaResult(draft_id=draft_id, **payload)
+        self.session.add(item)
+        self.session.commit()
+        self.session.refresh(item)
         return item

@@ -108,3 +108,23 @@ class Evidence(SQLModel, table=True):
     source_id: str = Field(index=True)
     supporting_text: str
     confidence: float = Field(default=0.6)
+
+
+class Draft(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    blog_id: str = Field(index=True)
+    content: str
+    version: int = Field(default=1)
+    provenance_map: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class QaResult(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    draft_id: str = Field(index=True)
+    passed: bool = Field(default=False)
+    issues: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    voice_score: float = Field(default=0)
+    factuality_score: float = Field(default=0)
+    publish_blocked: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

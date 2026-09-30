@@ -4,7 +4,9 @@ from app.agents.blog_brain_state_agent import BlogBrainStateAgent
 from app.agents.fragment_analysis_agent import FragmentAnalysisAgent
 from app.agents.research_agent import ResearchAgent
 from app.agents.research_planner_agent import ResearchPlannerAgent
+from app.agents.qa_guardrails_agent import QaGuardrailsAgent
 from app.agents.transcription_agent import TranscriptionAgent
+from app.agents.writing_agent import WritingAgent
 from app.repositories.blog_repository import BlogRepository
 
 
@@ -18,6 +20,8 @@ class OrchestrationService:
         self.blog_brain_agent = BlogBrainStateAgent()
         self.research_planner_agent = ResearchPlannerAgent()
         self.research_agent = ResearchAgent()
+        self.writing_agent = WritingAgent()
+        self.qa_agent = QaGuardrailsAgent()
 
     def process_fragment(self, fragment_id: str) -> str | None:
         fragment = self.repo.get_fragment(fragment_id)
@@ -101,3 +105,84 @@ class OrchestrationService:
             self.repo.session.commit()
             completed += int(sufficient)
         return completed
+
+    def generate_draft(self, blog_id: str) -> dict[str, object] | None:
+        blog = self.repo.get_blog(blog_id)
+        brain = self.repo.get_latest_blog_brain(blog_id)
+        if blog is None or brain is None:
+            return None
+        sources = self.repo.list_sources(blog_id)
+        findings = [{"sources": [{"title": source.title, "url": source.url}]} for source in sources]
+        latest = self.repo.get_latest_draft(blog_id)
+        output = self.writing_agent.run(blog.title, brain.payload, findings, latest.content if latest else None)
+        draft = self.repo.save_draft(blog_id, output["draft_content"], output["provenance_map"])
+        return self._draft_payload(draft)
+
+    def revise_draft(self, draft_id: str, revision_prompt: str) -> dict[str, object] | None:
+        draft = self.repo.get_draft(draft_id)
+        if draft is None:
+            return None
+        content = f"{draft.content}\n\nRevision request applied: {revision_prompt}"
+        return self._draft_payload(self.repo.save_draft(draft.blog_id, content, draft.provenance_map))
+
+    def validate_draft(self, draft_id: str) -> dict[str, object] | None:
+        draft = self.repo.get_draft(draft_id)
+        if draft is None:
+            return None
+        brain = self.repo.get_latest_blog_brain(draft.blog_id)
+        guardrail = self.repo.get_guardrail(draft.blog_id)
+        guardrails = {
+            "tone": guardrail.tone,
+            "length": guardrail.length,
+            "preserve_voice": guardrail.preserve_voice,
+            "citation_required": guardrail.citation_required,
+            "banned_topics": guardrail.banned_topics,
+        } if guardrail else None
+        result = self.qa_agent.run(
+            draft.content,
+            brain.payload if brain else {},
+            citation_required=guardrail.citation_required if guardrail else True,
+            guardrails=guardrails,
+        )
+        self.repo.save_qa_result(draft.id, result)
+        return result
+
+    def sentence_why(self, draft_id: str, sentence_id: str) -> dict[str, object] | None:
+        draft = self.repo.get_draft(draft_id)
+        if draft is None:
+            return None
+        provenance = draft.provenance_map.get(sentence_id, {})
+        lines = [line for line in draft.content.splitlines() if line.strip()]
+        try:
+            index = max(int(sentence_id.removeprefix("s_")) - 1, 0)
+        except ValueError:
+            index = 0
+        sentence_text = lines[index] if index < len(lines) else ""
+        evidence = self.repo.list_evidence(draft.blog_id)
+        confidence = max((item.confidence for item, _ in evidence), default=0.75)
+        return {
+            "sentence_id": sentence_id,
+            "sentence_text": sentence_text,
+            "user_basis": [provenance["basis"]] if provenance.get("basis") == "blog_brain" else [],
+            "ai_interpretation": f"Origin: {provenance.get('origin', 'AI_GENERATED')}.",
+            "source_evidence": [
+                {
+                    "sourceTitle": source.title,
+                    "sourceUrl": source.url,
+                    "supportText": item.supporting_text,
+                }
+                for item, source in evidence
+            ],
+            "confidence": confidence,
+        }
+
+    @staticmethod
+    def _draft_payload(draft) -> dict[str, object]:
+        return {
+            "id": draft.id,
+            "blog_id": draft.blog_id,
+            "version": draft.version,
+            "content": draft.content,
+            "word_count": len(draft.content.split()),
+            "updated_at": draft.created_at,
+        }

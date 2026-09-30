@@ -93,3 +93,39 @@ class SourceResponse(ApiBaseModel):
     publisher: str | None = None
     published_at: str | None = Field(default=None, alias="publishedAt")
     credibility: float
+
+
+class DraftResponse(ApiBaseModel):
+    id: str
+    blog_id: str = Field(alias="blogId")
+    version: int
+    content: str
+    word_count: int = Field(alias="wordCount")
+    updated_at: datetime = Field(alias="updatedAt")
+
+
+class DraftRevisionRequest(ApiBaseModel):
+    revision_prompt: str = Field(alias="revisionPrompt", min_length=1, max_length=2_000)
+
+
+class SentenceWhyResponse(ApiBaseModel):
+    sentence_id: str = Field(alias="sentenceId")
+    sentence_text: str = Field(alias="sentenceText")
+    user_basis: list[str] = Field(alias="userBasis")
+    ai_interpretation: str = Field(alias="aiInterpretation")
+    source_evidence: list[dict[str, str]] = Field(alias="sourceEvidence")
+    confidence: float
+
+
+class QaIssue(ApiBaseModel):
+    type: str
+    text: str
+    severity: Literal["low", "medium", "high"]
+
+
+class QaResultResponse(ApiBaseModel):
+    passed: bool
+    issues: list[QaIssue]
+    voice_score: float = Field(alias="voiceScore")
+    factuality_score: float = Field(alias="factualityScore")
+    publish_blocked: bool = Field(alias="publishBlocked")
