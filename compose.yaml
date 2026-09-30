@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: robo-blog-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: robo_blog
+      POSTGRES_USER: robo_blog
+      POSTGRES_PASSWORD: robo_blog_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - robo_blog_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U robo_blog -d robo_blog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  robo_blog_postgres_data:
