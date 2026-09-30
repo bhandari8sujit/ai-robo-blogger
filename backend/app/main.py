@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
+from app.api.blogs import router as blogs_router
 from app.core.config import settings
 from app.core.database import create_db_and_tables
 
@@ -35,3 +36,4 @@ def healthcheck() -> dict[str, str]:
 
 # Router modules own their endpoint declarations; registration attaches them to this application.
 app.include_router(auth_router)
+app.include_router(blogs_router)
