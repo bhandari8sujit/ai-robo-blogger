@@ -1,5 +1,25 @@
 # End-to-End Workflow
 
+## Target Product Workflow
+
+The target workflow in [Product intent](../intent/ai-robo-blogger.md) is
+fragment collection followed by user-directed composition:
+
+1. A user records and saves audio fragments.
+2. The app transcribes each fragment and lets the user review and edit its text.
+3. The user selects saved fragments to compose a post.
+4. The app creates an elegant draft that preserves the user's voice and
+   viewpoint, and checks factual claims.
+5. The user reviews evidence-backed correction suggestions, accepts or rejects
+   them, and optionally includes citations.
+6. The user saves the post as an in-app draft and can copy or export it.
+
+The current request-by-request flows below document the checked-in behavior,
+which differs from this target: uploading a fragment runs analysis and draft
+generation immediately, rather than waiting for the user to select fragments.
+The current implementation also lacks account-level privacy and transcript
+editing; see the [backend](backend.md) and [frontend](frontend.md) notes.
+
 ## Fragment To Draft
 
 ```mermaid

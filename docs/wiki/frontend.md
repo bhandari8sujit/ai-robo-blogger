@@ -2,7 +2,26 @@
 
 ## Purpose
 
-The frontend is a Next.js App Router application that provides a single voice-first writing workspace. It currently targets the seeded `demo-blog` rather than a selectable blog session.
+The frontend is a Next.js App Router application that provides a single
+voice-first writing workspace. It currently targets the seeded `demo-blog`
+rather than a selectable blog session. See [Product intent](../intent/ai-robo-blogger.md)
+for the target user workflow; the current UI does not yet implement that full
+workflow.
+
+## Product Direction
+
+The target experience is a responsive desktop web app where users save audio
+fragments, review and edit their transcripts, then select fragments to compose
+a post. Generated prose should be elegant while preserving the author's voice
+and viewpoint. Users review evidence-backed correction suggestions, may include
+citations, and save drafts for copy or export; direct publishing is outside the
+first release.
+
+The current UI uploads a fragment directly into backend processing, which
+analyzes and drafts from that fragment. It does not yet provide transcript
+editing, selecting multiple saved fragments for composition, account-scoped
+navigation, or draft export. The existing Publish button is not wired to an
+action.
 
 ```mermaid
 flowchart TD

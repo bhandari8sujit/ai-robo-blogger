@@ -1,6 +1,13 @@
 # Robo Blog Wiki
 
-Robo Blog turns short, unordered voice fragments into a working blog draft. The application is split into a Next.js browser client and a FastAPI backend that persists blog state and coordinates AI-assisted processing.
+Robo Blog helps people capture spontaneous thoughts as audio fragments and
+compose selected fragments into elegant, fact-grounded blog drafts. The
+confirmed product direction is documented in [Product intent](../intent/ai-robo-blogger.md).
+
+This wiki describes the checked-in application's current architecture and
+behavior; it is not a claim that the product intent is already implemented.
+The application is split into a Next.js browser client and a FastAPI backend
+that persists blog state and coordinates AI-assisted processing.
 
 ## Wiki Pages
 
@@ -28,5 +35,6 @@ The checked-in application starts with a seeded `demo-blog`, SQLite, and filesys
 
 ## Related Design Documents
 
+- [Product intent](../intent/ai-robo-blogger.md)
 - [Product concept](../../ai_voice_to_blog.md)
 - [Detailed implementation plan](../detailed_implementation_plan.md)

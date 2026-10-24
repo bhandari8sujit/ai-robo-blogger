@@ -21,6 +21,14 @@ flowchart TB
 
 [app/core/config.py](../../backend/app/core/config.py) loads [backend/.env](../../backend/.env) and exposes database, CORS, OpenAI, Tavily, R2, and Supabase settings. Placeholder values beginning with `replace-with-` are intentionally treated as absent credentials.
 
+## Product And Data Boundaries
+
+The target workflow and privacy constraints are recorded in [Product intent](../intent/ai-robo-blogger.md). In the first release, users should have separate accounts; their recordings, transcripts, and drafts should be private to them and deletable. Audio may be sent to a transcription model to produce text. Web searches may receive disclosed, extracted claim text only—not recordings or full drafts. Fact-check results should support user-approved corrections and optional citations.
+
+The backend includes email/password registration (`POST /auth/register`), JWT bearer login (`POST /auth/token`), and current-user lookup (`GET /auth/me`). Resource isolation is incomplete: route authentication is inconsistent, and routes that accept an authenticated user do not consistently use that user's ID to scope resource lookups. The frontend has login/register UI, but the workspace still targets the fixed `demo-blog` rather than selecting an account-owned blog.
+
+Configured OpenAI agent stages process transcripts and derived blog content; the product direction permits third-party composition only with clear disclosure. That disclosure is not yet enforced by the current flow. The current Tavily flow searches planned research questions rather than enforcing the claim-only boundary. Treat the current setup as a development implementation, not a private multi-user deployment; provider disclosures and per-user access controls remain product requirements, not existing guarantees.
+
 ## For Node.js Developers
 
 FastAPI occupies roughly the role of Express or NestJS, but it derives request validation, serialization, and OpenAPI metadata from Python type annotations. A route function is comparable to an Express handler; `APIRouter` is comparable to an Express router module; and application lifespan is analogous to startup/shutdown initialization performed before accepting requests.
